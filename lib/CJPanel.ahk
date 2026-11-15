@@ -857,7 +857,7 @@ CJPanel_HighlightOn(){
 	return (ini_pasteModeHighlight != "0")
 }
 
-; returns [{t: text, c: ARGB}, ...] or "" when the text is neither XML/HTML nor JSON
+; returns [{t: text, c: ARGB}, ...] or "" when the text is not XML/HTML, JSON, PowerShell or JavaScript
 CJPanel_Highlight(text, T){
 	lead := LTrim(text, " `t`r`n")
 	first := SubStr(lead, 1, 1)
@@ -865,10 +865,14 @@ CJPanel_Highlight(text, T){
 		lang := "xml"
 	else if ((first = "{" || first = "[") && RegExMatch(lead, "^[\[{]\s*([""{\[\]}]|-?\d|true|false|null)"))
 		lang := "json"
-	else if CJPanel_IsPowerShell(lead)
-		return CJPanel_HighlightPS(text, T.hl)
-	else
+	else {
+		ps := CJPanel_PSScore(lead), js := CJPanel_JSScore(lead)   ; both: "${x}" counts for PowerShell too
+		if (js >= 2 && js > ps)
+			return CJPanel_HighlightJS(text, T.hl)
+		if (ps >= 2)
+			return CJPanel_HighlightPS(text, T.hl)
 		return ""
+	}
 	hl := T.hl, runs := [], pos := 1, len := StrLen(text), inTag := 0
 	while (pos <= len)
 	{
@@ -922,6 +926,10 @@ CJPanel_Highlight(text, T){
 ; PowerShell detection by score, so normal prose (e.g. "Set-Up meeting for $5") is not coloured:
 ; cmdlet with an approved verb +1.5, each $variable +1 (max 2), block keyword +1, <# comment #> +1
 CJPanel_IsPowerShell(text){
+	return (CJPanel_PSScore(text) >= 2)
+}
+
+CJPanel_PSScore(text){
 	static verbs := "Get|Set|New|Remove|Add|Invoke|Write|Start|Stop|Import|Export|Test|Select|Where|ForEach|Out|Format"
 		. "|Convert|ConvertTo|ConvertFrom|Clear|Copy|Move|Rename|Join|Split|Read|Enable|Disable|Install|Uninstall|Update"
 		. "|Register|Unregister|Measure|Sort|Group|Compare|Wait|Resolve|Push|Pop|Restart|Find|Save|Send|Connect"
@@ -931,7 +939,9 @@ CJPanel_IsPowerShell(text){
 	if RegExMatch(t, "\b(" verbs ")-[A-Z][A-Za-z]+\b(\s+-[A-Za-z]+)?", mc)
 		score += (mc2 != "") ? 2 : 1.5     ; cmdlet with a -Parameter (group 2; group 1 = verb) is unambiguous
 	pos := 1, nv := 0
-	while (nv < 2 && (pos := RegExMatch(t, "\$(?:[A-Za-z_][\w]*|\{[^}]+\})", m, pos))) {
+	; ${x} counts only when the text has no JavaScript template literal (`... ${x} ...`)
+	varRe := RegExMatch(t, "``[^``\r\n]*\$\{") ? "\$[A-Za-z_][\w]*" : "\$(?:[A-Za-z_][\w]*|\{[^}]+\})"
+	while (nv < 2 && (pos := RegExMatch(t, varRe, m, pos))) {
 		nv++, pos += StrLen(m)
 	}
 	score += nv
@@ -939,7 +949,100 @@ CJPanel_IsPowerShell(text){
 		score += 1
 	if InStr(t, "<#")
 		score += 1
-	return (score >= 2)
+	return score
+}
+
+; JavaScript / TypeScript detection by score (>= 2), so prose with a "function" or "=>" is not coloured:
+; function declaration +2, const/let/var assignment +1.5, arrow function +1, console./document./window. +1,
+; import ... from / require( / export +1.5, lines ending with ";" (2+) +0.5, // comment line +0.5
+CJPanel_JSScore(text){
+	t := SubStr(text, 1, 3000), score := 0
+	if RegExMatch(t, "m)(^|[\s;{(=])(async\s+)?function\s*\*?\s*[\w$]*\s*\([^)]*\)\s*\{")
+		score += 2
+	if RegExMatch(t, "m)(^|[\s;{(])(const|let|var)\s+[\w$\[\]{},\s]+\s*=")
+		score += 1.5
+	if RegExMatch(t, "(\([^()]*\)|\b[\w$]+)\s*=>")
+		score += 1
+	if RegExMatch(t, "\b(console\.(log|warn|error|info)|document\.|window\.|JSON\.(parse|stringify)|Math\.|\.addEventListener)\s*\(?")
+		score += 1
+	if RegExMatch(t, "m)^\s*(import\s+.+\s+from\s+['""]|import\s+['""]|export\s+(default\s+|const\s|function\s|class\s)|.*\brequire\(\s*['""])")
+		score += 1.5
+	semi := 0, pos := 1
+	while (semi < 2 && (pos := RegExMatch(t, "m);[ \t]*(//.*)?\r?$", m, pos)))
+		semi++, pos += Max(StrLen(m), 1)
+	if (semi >= 2)
+		score += 0.5
+	if RegExMatch(t, "m)^\s*//")
+		score += 0.5
+	return score
+}
+
+; JavaScript / TypeScript: comments, strings (incl. `template ${...}`), numbers, keywords, calls, types
+CJPanel_HighlightJS(text, hl){
+	static kw := "|const|let|var|function|class|extends|new|this|super|typeof|instanceof|in|of|void|delete|true|false"
+		. "|null|undefined|NaN|Infinity|get|set|static|async|interface|type|enum|implements|public|private|protected"
+		. "|readonly|declare|namespace|abstract|"
+	static ctl := "|if|else|for|while|do|switch|case|default|break|continue|return|try|catch|finally|throw|await"
+		. "|yield|import|export|from|as|"
+	runs := [], pos := 1, len := StrLen(text), last := ""   ; last = last significant token (regex vs. division)
+	while (pos <= len)
+	{
+		sig := 1
+		if RegExMatch(text, "\G//[^\r\n]*", mt, pos)
+			runs.Push({t: mt, c: hl.comment}), sig := 0
+		else if RegExMatch(text, "\G/\*[\s\S]*?(?:\*/|$)", mt, pos)
+			runs.Push({t: mt, c: hl.comment}), sig := 0
+		else if RegExMatch(text, "\G""(?:[^""\\\r\n]|\\.)*""?", mt, pos)
+			runs.Push({t: mt, c: hl.string})
+		else if RegExMatch(text, "\G'(?:[^'\\\r\n]|\\.)*'?", mt, pos)
+			runs.Push({t: mt, c: hl.string})
+		else if RegExMatch(text, "\G``(?:[^``\\]|\\[\s\S])*``?", mt, pos)            ; template literal
+			CJPanel_HighlightJSTemplate(mt, runs, hl)
+		else if (!RegExMatch(last, "[\w$)\]]$") && RegExMatch(text, "\G/(?![/*])(?:[^/\\\r\n\[]|\\.|\[(?:[^\]\\\r\n]|\\.)*\])+/[gimsuyd]*", mt, pos))
+			runs.Push({t: mt, c: hl.string})                                         ; /regex/
+		else if RegExMatch(text, "\G(?:0[xX][\da-fA-F_]+|0[bB][01_]+|\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?)n?\b", mt, pos)
+			runs.Push({t: mt, c: hl.number})
+		else if RegExMatch(text, "\G[A-Za-z_$][\w$]*", mt, pos) {
+			if InStr(ctl, "|" mt "|")
+				cl := hl.control
+			else if InStr(kw, "|" mt "|")
+				cl := hl.keyword
+			else if RegExMatch(text, "\G\s*\(", m2, pos + StrLen(mt))             ; call / declaration
+				cl := hl.cmdlet
+			else if RegExMatch(mt, "^[A-Z][a-z]\w*$")                                 ; ClassName
+				cl := hl.type
+			else
+				cl := hl.variable
+			runs.Push({t: mt, c: cl})
+		}
+		else if RegExMatch(text, "\G\s+", mt, pos)
+			runs.Push({t: mt, c: hl.text}), sig := 0
+		else
+			RegExMatch(text, "\G[\s\S]", mt, pos), runs.Push({t: mt, c: hl.text})
+		if (StrLen(mt) = 0)
+			mt := SubStr(text, pos, 1), runs.Push({t: mt, c: hl.text})
+		if sig
+			last := mt
+		pos += StrLen(mt)
+	}
+	return runs
+}
+
+; `text ${expr} text`: the string in string colour, ${ } as punctuation, the expression as variable
+CJPanel_HighlightJSTemplate(s, runs, hl){
+	pos := 1, len := StrLen(s)
+	while (pos <= len)
+	{
+		if RegExMatch(s, "\G\$\{([^}]*)(\}?)", mt, pos)
+			runs.Push({t: "${", c: hl.keyword}), runs.Push({t: mt1, c: hl.variable}), runs.Push({t: mt2, c: hl.keyword})
+		else if RegExMatch(s, "\G(?:[^$\\]|\\[\s\S]|\$(?!\{))+", mt, pos)
+			runs.Push({t: mt, c: hl.string})
+		else
+			RegExMatch(s, "\G[\s\S]", mt, pos), runs.Push({t: mt, c: hl.string})
+		if (StrLen(mt) = 0)
+			mt := SubStr(s, pos, 1), runs.Push({t: mt, c: hl.string})
+		pos += StrLen(mt)
+	}
 }
 
 CJPanel_HighlightPS(text, hl){

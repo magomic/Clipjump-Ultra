@@ -183,7 +183,11 @@ CJWrite_Run(task, text, mode := "selection"){
 		if same 						; nothing to replace
 			return CJWrite_Msg(TXT.TIP_llm_nochange, "info", 1500)
 		cjPasteTextNoClip(out)
-		return CJWrite_Msg(isTr ? TXT.TIP_llm_trReplaced : TXT.TIP_llm_replaced, "check", 1500)
+		; check: if the original selection can still be copied, the paste did nothing (read-only
+		; document or web page) - then the result goes to the clipboard below
+		sleep 150
+		if !(CopytoVar(0.4) == text)
+			return CJWrite_Msg(isTr ? TXT.TIP_llm_trReplaced : TXT.TIP_llm_replaced, "check", 1500)
 	}
 	msg := isTr ? TXT.TIP_llm_translated : same ? TXT.TIP_llm_nochange "`n" TXT.TIP_llm_toclip : TXT.TIP_llm_done
 	if ini_IsMessage {
@@ -195,10 +199,14 @@ CJWrite_Run(task, text, mode := "selection"){
 		CJWrite_Msg(msg, "check", 1500)
 	}
 }
-; the active window and its focused control, and whether the selection there can be replaced:
-; edit := a caret is shown (text input) or UI Automation reports an editable value - unless UI Automation
-; says the element is read-only (read-only edit controls and web pages may show a caret too)
+; the active window and its focused control, and whether the selection there may be replaced:
+; edit := 0 when UI Automation says the element is read-only (read-only edit controls and web pages may
+; show a caret too) or the window is a console / Explorer (Ctrl+V there would type into the command
+; line or paste files), else 1. Apps such as Word report neither a value pattern nor a caret: there the
+; replacement is tried and checked afterwards (CJWrite_Run).
 CJWrite_Target(){
+	static noPaste := "|ConsoleWindowClass|CASCADIA_HOSTING_WINDOW_CLASS|mintty|PuTTY|VirtualConsoleClass"
+		. "|CabinetWClass|ExploreWClass|Progman|WorkerW|Shell_TrayWnd|"
 	t := {win: WinExist("A"), focus: 0, caret: 0, edit: 0}
 	if !t.win
 		return t
@@ -209,8 +217,8 @@ CJWrite_Target(){
 		t.focus := NumGet(gti, A_PtrSize = 8 ? 16 : 12, "Ptr")
 		t.caret := NumGet(gti, A_PtrSize = 8 ? 48 : 28, "Ptr")
 	}
-	uia := CJWrite_UiaEditable()
-	t.edit := (uia = 1) || (uia = -1 && t.caret)
+	WinGetClass, cls, % "ahk_id " t.win
+	t.edit := !InStr(noPaste, "|" cls "|") && (CJWrite_UiaEditable() != 0)
 	return t
 }
 
