@@ -361,6 +361,8 @@ load_Settings(all=false){
 		ini_write("Advanced", "pasteModeMaxLines", 12)		; max visible lines of a text clip (1-60)
 		ini_write("Advanced", "pasteModePreviewChars", 200)	; characters of a clip shown in the preview (50-5000)
 		ini_pasteModeHighlight := ini_read("Advanced", "pasteModeHighlight")
+		ini_write("Advanced", "pasteModeRichText", 1)		; formatted preview of rich text (HTML) clips
+		ini_pasteModeRichText := ini_read("Advanced", "pasteModeRichText")
 		ini_pasteModeWidth := ini_read("Advanced", "pasteModeWidth")
 		ini_pasteModeMaxLines := ini_read("Advanced", "pasteModeMaxLines")
 		ini_pasteModePreviewChars := ini_read("Advanced", "pasteModePreviewChars")

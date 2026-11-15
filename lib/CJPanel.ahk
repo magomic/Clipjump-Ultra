@@ -71,6 +71,7 @@ CJPanel_Init(){
 	CJP.famBody := CJPanel_Family([bodyFont, "Segoe UI"])
 	CJP.fTitle := Gdip_FontCreate(CJP.famBold, 13.5*scl, 0, 2)
 	CJP.fBody  := Gdip_FontCreate(CJP.famBody, bodySize*scl, 0, 2)
+	CJP.bodyPx := bodySize*scl, CJP.fBodyV := {}   ; bold/italic/underline variants: CJPanel_BodyFont()
 	CJP.fList  := Gdip_FontCreate(CJP.famText, 13.5*scl, 0, 2)
 	CJP.fMeta  := Gdip_FontCreate(CJP.famText, 12*scl, 0, 2)
 	CJP.fChip  := Gdip_FontCreate(CJP.famBold, 11.5*scl, 0, 2)
@@ -135,6 +136,9 @@ CJPanel_Reset(){
 		Gdip_DisposeImage(CJP.frame)
 	for k, f in ["fTitle", "fBody", "fList", "fMeta", "fChip"]
 		Gdip_DeleteFont(CJP[f])
+	for k, f in CJP.fBodyV
+		Gdip_DeleteFont(f)
+	CJP.fBodyV := {}
 	for k, f in ["sfLine", "sfRight", "sfCenter", "sfWrap", "sfTypo"]
 		Gdip_DeleteStringFormat(CJP[f])
 	for k, f in ["famText", "famBold", "famBody"]
@@ -562,7 +566,11 @@ CJPanel_BodyMeasure(info, T, ByRef CW, maxCW){
 		body .= " " Chr(0x2026)     ; ellipsis (kept ASCII-only: this file has no BOM)
 	bd.body := body
 	lineH := Gdip_GetFontHeight(CJP.fBody, CJP.G)
-	lay := (!bd.err && CJPanel_HighlightOn()) ? CJPanel_Highlight(body, T) : ""
+	lay := ""
+	if (!bd.err && info.html != "")     ; formatted text (HTML of the clip; only without a paste format)
+		lay := CJPanel_HtmlRuns(info.html, T)
+	if (!lay && !bd.err && CJPanel_HighlightOn())
+		lay := CJPanel_Highlight(body, T)
 	if (!bd.err && IsObject(info.search) && Trim(info.search.query) != "")   ; search: mark the matches
 		lay := CJPanel_MarkRuns(lay ? lay : [{t: body, c: T.text}], info.search.query, T)
 	if (lay) {   ; syntax highlighted / search matches: own layout of coloured pieces
@@ -1098,6 +1106,7 @@ CJPanel_Layout(runs, maxW, maxLines, lineH){
 	lines := [[]], px := 0, wMax := 0, cut := 0
 	for i, run in runs
 	{
+		fnt := CJPanel_BodyFont(run.st)
 		for j, seg in StrSplit(run.t, "`n", "`r")
 		{
 			if (j > 1) {   ; newline inside the run
@@ -1113,31 +1122,31 @@ CJPanel_Layout(runs, maxW, maxLines, lineH){
 			while RegExMatch(seg, "\G(\S+\s*|\s+)", ck, p)
 			{
 				p += StrLen(ck)
-				cw := CJPanel_TextWT(ck, CJP.fBody)
+				cw := CJPanel_TextWT(ck, fnt)
 				if (px + cw <= maxW) {
-					lines[lines.Length()].Push({t: ck, c: run.c, bg: run.bg, x: px, w: cw}), px += cw
+					lines[lines.Length()].Push({t: ck, c: run.c, bg: run.bg, st: run.st, x: px, w: cw}), px += cw
 					continue
 				}
-				if (px > 0 && CJPanel_TextWT(RTrim(ck), CJP.fBody) <= maxW) {   ; fits on a fresh line
+				if (px > 0 && CJPanel_TextWT(RTrim(ck), fnt) <= maxW) {   ; fits on a fresh line
 					wMax := Max(wMax, px), px := 0
 					if (lines.Length() >= maxLines) {
 						cut := 1
 						break 3
 					}
 					lines.Push([])
-					lines[lines.Length()].Push({t: ck, c: run.c, bg: run.bg, x: 0, w: cw}), px := cw
+					lines[lines.Length()].Push({t: ck, c: run.c, bg: run.bg, st: run.st, x: 0, w: cw}), px := cw
 					continue
 				}
 				; token longer than the free space: split it by characters
 				rest := ck
 				while (rest != "")
 				{
-					n := CJPanel_FitChars(rest, maxW - px)
+					n := CJPanel_FitChars(rest, maxW - px, fnt)
 					if (n = 0 && px = 0)
 						n := 1
 					if (n > 0) {
-						part := SubStr(rest, 1, n), pw := CJPanel_TextWT(part, CJP.fBody)
-						lines[lines.Length()].Push({t: part, c: run.c, bg: run.bg, x: px, w: pw}), px += pw
+						part := SubStr(rest, 1, n), pw := CJPanel_TextWT(part, fnt)
+						lines[lines.Length()].Push({t: part, c: run.c, bg: run.bg, st: run.st, x: px, w: pw}), px += pw
 						rest := SubStr(rest, n + 1)
 					}
 					if (rest != "") {
@@ -1185,12 +1194,12 @@ CJPanel_MarkRuns(runs, query, T){
 				if ((p := InStr(s, wd, false, pos)) && (!best || p < best || (p = best && StrLen(wd) > bestLen)))
 					best := p, bestLen := StrLen(wd)
 			if (!best) {
-				out.Push({t: SubStr(s, pos), c: run.c})
+				out.Push({t: SubStr(s, pos), c: run.c, st: run.st})
 				break
 			}
 			if (best > pos)
-				out.Push({t: SubStr(s, pos, best - pos), c: run.c})
-			out.Push({t: SubStr(s, best, bestLen), c: T.text, bg: T.matchBg})
+				out.Push({t: SubStr(s, pos, best - pos), c: run.c, st: run.st})
+			out.Push({t: SubStr(s, best, bestLen), c: T.text, bg: T.matchBg, st: run.st})
 			pos := best + bestLen
 		}
 	}
@@ -1257,11 +1266,13 @@ CJPanel_SearchBox(G, T, srch, px, py, pw, ph){
 }
 
 ; how many leading characters of str fit into avail px (binary search)
-CJPanel_FitChars(str, avail){
+CJPanel_FitChars(str, avail, fnt := ""){
+	if !fnt
+		fnt := CJP.fBody
 	lo := 0, hi := StrLen(str)
 	while (lo < hi) {
 		mid := (lo + hi + 1) // 2
-		if (CJPanel_TextWT(SubStr(str, 1, mid), CJP.fBody) <= avail)
+		if (CJPanel_TextWT(SubStr(str, 1, mid), fnt) <= avail)
 			lo := mid
 		else
 			hi := mid - 1
@@ -1284,7 +1295,7 @@ CJPanel_DrawLayout(G, lay, px, py){
 			if !brushes.HasKey(pc.c)
 				brushes[pc.c] := Gdip_BrushCreateSolid(pc.c)
 			CreateRectF(rc, px + pc.x, py + (i-1)*lay.lineH, pc.w + 4, lay.lineH + 2)
-			Gdip_DrawString(G, pc.t, CJP.fBody, CJP.sfTypo, brushes[pc.c], rc)
+			Gdip_DrawString(G, pc.t, CJPanel_BodyFont(pc.st), CJP.sfTypo, brushes[pc.c], rc)
 		}
 	for k, pB in brushes
 		Gdip_DeleteBrush(pB)
@@ -1299,13 +1310,13 @@ CJPanel_TextWT(text, hFont){
 
 ;------------------------------------------------------------------------------------------------
 ; rich formats of the clip currently on the clipboard (paste mode loads the clip there):
-; returns {kind: "HTML" | "Link" | "Rich Text" | "", url, text}
+; returns {kind: "HTML" | "Link" | "Rich Text" | "", url, text, html (CF_HTML when it is not a single link)}
 ;   Link = the HTML fragment is a single hyperlink -> url is shown below the preview
 
 CJPanel_ClipRichInfo(){
 	static cfHTML := DllCall("RegisterClipboardFormat", "Str", "HTML Format", "UInt")
 	static cfRTF := DllCall("RegisterClipboardFormat", "Str", "Rich Text Format", "UInt")
-	res := {kind: "", url: "", text: ""}
+	res := {kind: "", url: "", text: "", html: ""}
 	; Word/Outlook/WordPad supply RTF (often plus HTML), browsers HTML only -> RTF wins over HTML,
 	; a single hyperlink wins over both
 	hasRTF := DllCall("IsClipboardFormatAvailable", "UInt", cfRTF)
@@ -1331,6 +1342,8 @@ CJPanel_ClipRichInfo(){
 		}
 		if IsObject(lk := CJPanel_ParseHtmlLink(html))
 			res.kind := "Link", res.url := lk.url, res.text := lk.text
+		else
+			res.html := html
 	}
 	return res
 }
@@ -1358,4 +1371,218 @@ CJPanel_HtmlDecode(s){
 	s := StrReplace(s, "&quot;", """"), s := StrReplace(s, "&#39;", "'"), s := StrReplace(s, "&apos;", "'")
 	s := StrReplace(s, "&lt;", "<"), s := StrReplace(s, "&gt;", ">"), s := StrReplace(s, "&nbsp;", " ")
 	return StrReplace(s, "&amp;", "&")
+}
+
+;------------------------------------------------------------------------------------------------
+; formatted preview of rich clips ([Advanced] pasteModeRichText = 1 | 0)
+
+CJPanel_RichOn(){
+	global ini_pasteModeRichText
+	return (ini_pasteModeRichText != "0")
+}
+
+; body font with style bits 1 = bold, 2 = italic, 4 = underline (cached, freed with the fonts)
+CJPanel_BodyFont(st){
+	if !st
+		return CJP.fBody
+	if !CJP.fBodyV.HasKey(st)
+		CJP.fBodyV[st] := Gdip_FontCreate(CJP.famBody, CJP.bodyPx, st, 2)
+	return CJP.fBodyV[st]
+}
+
+; CF_HTML (Word, Outlook, browsers, VS Code) -> [{t, c, st}] or "" when the fragment has no visible
+; formatting (then the plain text / syntax highlighting is shown). Colours are made readable on the
+; panel background; backgrounds and font sizes are ignored.
+CJPanel_HtmlRuns(html, T){
+	static blocks := "|p|div|li|ul|ol|tr|table|h1|h2|h3|h4|h5|h6|pre|blockquote|section|article|header|footer|dd|dt|dl|hr|"
+	static voids := "|img|hr|meta|link|input|col|wbr|area|base|source|"
+	frag := html
+	if (p1 := InStr(html, "<!--StartFragment-->")) && (p2 := InStr(html, "<!--EndFragment-->", false, p1))
+		frag := SubStr(html, p1 + 20, p2 - p1 - 20)
+	else
+		frag := RegExReplace(html, "s)^Version:.*?(?=<)")
+	if (StrLen(frag) > 400000)
+		frag := SubStr(frag, 1, 400000)
+	frag := RegExReplace(frag, "is)<(script|style|head|title|xml)\b.*?</\1\s*>")
+	frag := RegExReplace(frag, "s)<!--.*?-->")
+	stack := [{tag: "", st: 0, c: "", pre: 0, list: ""}], runs := [], pos := 1, len := StrLen(frag)
+	out := {n: 0, nl: 1, sp: 0, styled: 0}
+	while (pos <= len && out.n < 6000)
+	{
+		if RegExMatch(frag, "\G<[!?][^>]*>", m, pos) {             ; <![if ...]>, <?xml ...?>
+			pos += StrLen(m)
+			continue
+		}
+		if RegExMatch(frag, "\G<(/?)([A-Za-z][\w:.-]*)((?:[^>""']|""[^""]*""|'[^']*')*)>", m, pos) {
+			pos += StrLen(m)
+			tag := RegExReplace(Format("{:L}", m2), "^\w+:")       ; <o:p> -> p
+			isClose := (m1 = "/"), attrs := m3
+			if (tag = "br") {
+				CJPanel_HtmlEmit(runs, out, "`n", stack[stack.Length()], T)
+				continue
+			}
+			if (InStr(blocks, "|" tag "|") && !out.nl && runs.Length())
+				CJPanel_HtmlEmit(runs, out, "`n", stack[stack.Length()], T)
+			if (!isClose && (tag = "td" || tag = "th") && !out.nl && runs.Length())
+				CJPanel_HtmlEmit(runs, out, "   ", stack[stack.Length()], T)
+			if isClose {
+				i := stack.Length()
+				while (i > 1 && stack[i].tag != tag)
+					i--
+				if (i > 1)
+					while (stack.Length() >= i)
+						stack.Pop()
+				continue
+			}
+			if (InStr(voids, "|" tag "|") || RegExMatch(attrs, "/\s*$"))
+				continue
+			top := stack[stack.Length()]
+			el := {tag: tag, st: top.st, c: top.c, pre: top.pre, list: top.list, n: 0}
+			if tag in b,strong,th,h1,h2,h3,h4,h5,h6
+				el.st |= 1
+			if tag in i,em,cite,var,dfn
+				el.st |= 2
+			if tag in u,ins
+				el.st |= 4
+			if (tag = "pre")
+				el.pre := 1
+			if (tag = "ul" || tag = "ol")
+				el.list := tag
+			if (tag = "a" && RegExMatch(attrs, "i)\bhref\s*="))
+				el.st |= 4, el.c := "link"
+			if (tag = "font" && RegExMatch(attrs, "i)\bcolor\s*=\s*[""']?([#\w]+)", mc))
+				el.c := CJPanel_CssColor(mc1, el.c)
+			if RegExMatch(attrs, "i)\bstyle\s*=\s*(""([^""]*)""|'([^']*)')", ms)
+				CJPanel_HtmlStyle(ms2 ms3, el)
+			stack.Push(el)
+			if (tag = "li") {
+				lst := 0, k := stack.Length() - 1
+				while (k > 1 && !lst)
+					lst := (stack[k].tag = "ul" || stack[k].tag = "ol") ? k : 0, k--
+				if (lst && stack[lst].tag = "ol")
+					stack[lst].n++, mark := stack[lst].n ". "
+				else
+					mark := Chr(0x2022) " "
+				CJPanel_HtmlEmit(runs, out, mark, {st: 0, c: ""}, T)
+			}
+			continue
+		}
+		if RegExMatch(frag, "\G[^<]+", m, pos) {
+			pos += StrLen(m)
+			top := stack[stack.Length()]
+			piece := CJPanel_HtmlDecode(m)
+			if !top.pre {
+				piece := RegExReplace(piece, "[ \t\r\n]+", " ")
+				if (out.nl || out.sp)
+					piece := LTrim(piece, " ")
+			} else
+				piece := StrReplace(piece, "`r")
+			if (piece != "")
+				CJPanel_HtmlEmit(runs, out, piece, top, T)
+			continue
+		}
+		CJPanel_HtmlEmit(runs, out, "<", stack[stack.Length()], T), pos++
+	}
+	while (runs.Length() && RegExMatch(runs[runs.Length()].t, "^\s*$"))
+		runs.Pop()
+	if (runs.Length())
+		runs[runs.Length()].t := RTrim(runs[runs.Length()].t, " `n")
+	return (out.styled && runs.Length()) ? runs : ""
+}
+
+; adds text with the style of the element; merges it with the previous run when the style is the same
+CJPanel_HtmlEmit(runs, out, piece, el, T){
+	if (piece = "`n" && out.nl && runs.Length() && SubStr(runs[runs.Length()].t, -1) = "`n`n")
+		return                                                   ; at most one empty line
+	c := (el.c = "link") ? T.accentText : (el.c != "" ? CJPanel_Readable(el.c, T) : T.text)
+	st := el.st ? el.st : 0
+	if ((st || c != T.text) && Trim(piece) != "")
+		out.styled := 1
+	last := runs.Length() ? runs[runs.Length()] : ""
+	if (IsObject(last) && last.c = c && last.st = st)
+		last.t .= piece
+	else
+		runs.Push({t: piece, c: c, st: st})
+	out.n += StrLen(piece), out.nl := (SubStr(piece, 0) = "`n"), out.sp := (SubStr(piece, 0) = " ")
+}
+
+; inline CSS: color, font-weight, font-style, text-decoration
+CJPanel_HtmlStyle(css, el){
+	if RegExMatch(css, "i)(?:^|;)\s*color\s*:\s*([^;]+)", m)
+		el.c := CJPanel_CssColor(Trim(m1), el.c)
+	if RegExMatch(css, "i)font-weight\s*:\s*(\w+)", m)
+		el.st := (m1 = "bold" || m1 = "bolder" || (m1 + 0 >= 600)) ? el.st | 1 : el.st & ~1
+	if RegExMatch(css, "i)font-style\s*:\s*(\w+)", m)
+		el.st := (m1 = "italic" || m1 = "oblique") ? el.st | 2 : el.st & ~2
+	if RegExMatch(css, "i)white-space\s*:\s*(pre|break-spaces)")     ; VS Code: indentation kept
+		el.pre := 1
+	if RegExMatch(css, "i)text-decoration(?:-line)?\s*:\s*([^;]+)", m)
+		el.st := InStr(m1, "underline") ? el.st | 4 : (InStr(m1, "none") ? el.st & ~4 : el.st)
+}
+
+; CSS colour -> 0xRRGGBB, "" for the default text colour (black / windowtext / auto / inherit), else old
+CJPanel_CssColor(v, old){
+	static names := {red: 0xFF0000, green: 0x008000, blue: 0x0000FF, navy: 0x000080, maroon: 0x800000
+		, purple: 0x800080, teal: 0x008080, olive: 0x808000, gray: 0x808080, grey: 0x808080, silver: 0xC0C0C0
+		, orange: 0xFFA500, fuchsia: 0xFF00FF, lime: 0x00FF00, aqua: 0x00FFFF, yellow: 0xFFFF00, white: 0xFFFFFF}
+	v := Trim(RegExReplace(Format("{:L}", v), "\s*!important"))
+	v := RegExReplace(v, "\s+")
+	if v in black,windowtext,auto,inherit,initial,currentcolor,#000,#000000,text,buttontext
+		return ""
+	if (v = "rgb(0,0,0)")
+		return ""
+	if RegExMatch(v, "^#([0-9a-f])([0-9a-f])([0-9a-f])$", m)
+		return CJPanel_Hex(m1 m1 m2 m2 m3 m3)
+	if RegExMatch(v, "^#([0-9a-f]{6})", m)
+		return CJPanel_Hex(m1)
+	if RegExMatch(v, "^rgba?\((\d+),(\d+),(\d+)", m)
+		return (m1 << 16) | (m2 << 8) | m3
+	if names.HasKey(v)
+		return names[v]
+	return old
+}
+
+; hex digits -> number ("0x" h + 0 in an expression gives "" in AHK v1)
+CJPanel_Hex(h){
+	h := "0x" h
+	h += 0
+	return h
+}
+
+; source colour -> ARGB with enough contrast to the panel background (dark text in dark mode etc.);
+; greys near the theme text colour become the theme text colour
+CJPanel_Readable(rgb, T){
+	static cache := {}
+	key := rgb "|" T.bg
+	if cache.HasKey(key)
+		return cache[key]
+	bg := T.bg & 0xFFFFFF, lb := CJPanel_Lum(bg), dark := lb < 0.4
+	r := (rgb >> 16) & 255, g := (rgb >> 8) & 255, b := rgb & 255
+	if (Max(r, g, b) - Min(r, g, b) < 24 && (dark ? CJPanel_Lum(rgb) < 0.2 : CJPanel_Lum(rgb) > 0.6))
+		return cache[key] := T.text
+	res := T.text
+	loop 12 {
+		c := (r << 16) | (g << 8) | b, lc := CJPanel_Lum(c)
+		if ((Max(lc, lb) + 0.05) / (Min(lc, lb) + 0.05) >= 3.5) {
+			res := 0xFF000000 | c
+			break
+		}
+		if dark   ; blend towards white / black
+			r := Round(r + (255 - r) * 0.25), g := Round(g + (255 - g) * 0.25), b := Round(b + (255 - b) * 0.25)
+		else
+			r := Round(r * 0.75), g := Round(g * 0.75), b := Round(b * 0.75)
+	}
+	return cache[key] := res
+}
+
+; relative luminance (WCAG) of 0xRRGGBB
+CJPanel_Lum(rgb){
+	static wts := [0.2126, 0.7152, 0.0722]
+	l := 0
+	for i, sh in [16, 8, 0] {
+		v := ((rgb >> sh) & 255) / 255
+		v := v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+		l += wts[i] * v
+	}
+	return l
 }

@@ -186,7 +186,11 @@ CJWrite_Run(task, text, mode := "selection"){
 		; check: if the original selection can still be copied, the paste did nothing (read-only
 		; document or web page) - then the result goes to the clipboard below
 		sleep 150
-		if !(CopytoVar(0.4) == text)
+		chk := CopytoVar(0.4)
+		if (chk = "") 					; Word: Ctrl+C may not work, UI Automation does
+			chk := CJWrite_UiaSelection()
+		norm := "[\r\n\s]+"
+		if !(chk != "" && RegExReplace(chk, norm, " ") == RegExReplace(text, norm, " "))
 			return CJWrite_Msg(isTr ? TXT.TIP_llm_trReplaced : TXT.TIP_llm_replaced, "check", 1500)
 	}
 	msg := isTr ? TXT.TIP_llm_translated : same ? TXT.TIP_llm_nochange "`n" TXT.TIP_llm_toclip : TXT.TIP_llm_done
@@ -199,6 +203,95 @@ CJWrite_Run(task, text, mode := "selection"){
 		CJWrite_Msg(msg, "check", 1500)
 	}
 }
+; the selected text of the active window, without making a clip (Action Mode W / T / R).
+; More patient than CopytoVar: Word renders its clipboard data late. Order: Ctrl+C, Ctrl+Insert, then
+; UI Automation (TextPattern selection - works without the clipboard). If all fail, a diagnosis line
+; (window class and clipboard formats, never the text) goes to %A_Temp%\Clipjump-selection.log.
+CJWrite_GetSelection(){
+	key := RegExReplace(A_ThisHotkey, "[$~*!^+#<>]")
+	if (StrLen(key) = 1)
+		KeyWait, %key%, T0.5 		; the Action Mode key may still be down
+	for i, m in ["LControl", "RControl", "LShift", "RShift", "LAlt", "RAlt", "LWin", "RWin"]
+		KeyWait, %m%, T0.5
+	CALLER := 0
+	try oldclip := ClipboardAll
+	var := "" , diag := ""
+	for i, keys in ["^{vk43}", "^{Insert}"]
+	{
+		try Clipboard := ""
+		sleep 30
+		Send % keys
+		ClipWait, 2, 1 			; any format: Word announces its formats before it renders them
+		el := ErrorLevel
+		loop 6 {
+			try var := Clipboard
+			if (var != "" || el)
+				break
+			sleep 80
+		}
+		if (var != "")
+			break
+		diag .= " " keys ":" (el ? "timeout" : "formats=" CJWrite_ClipFormats())
+	}
+	try Clipboard := oldclip
+	oldclip := ""
+	CALLER := CALLER_STATUS
+	if (var = "") {
+		var := CJWrite_UiaSelection()
+		WinGetClass, cls, A
+		WinGet, exe, ProcessName, A
+		ControlGetFocus, fc, A
+		FileAppend, % A_Now " " exe " " cls " focus=" fc diag " uia=" (var != "" ? "ok" : "empty") "`n"
+			, %A_Temp%\Clipjump-selection.log, UTF-8
+	}
+	return var
+}
+
+; names of the formats on the clipboard (diagnosis only)
+CJWrite_ClipFormats(){
+	if !DllCall("OpenClipboard", "Ptr", 0)
+		return "(locked)"
+	s := "" , f := 0
+	while (f := DllCall("EnumClipboardFormats", "UInt", f, "UInt")) {
+		VarSetCapacity(nm, 256 * 2, 0)
+		s .= (s = "" ? "" : ",") (DllCall("GetClipboardFormatName", "UInt", f, "Str", nm, "Int", 256) ? nm : f)
+	}
+	DllCall("CloseClipboard")
+	return s = "" ? "none" : s
+}
+
+; selected text of the focused element by UI Automation (TextPattern), "" if not supported
+CJWrite_UiaSelection(){
+	static uia := 0
+	if !uia
+		try uia := ComObjCreate("{ff48dba4-60ef-4201-aa87-54103eef594e}", "{30cbe57d-d9d0-452a-ab13-7ac5ac4825ee}")
+	if !uia
+		return ""
+	el := tp := arr := 0 , out := ""
+	if (DllCall(NumGet(NumGet(uia+0) + 8*A_PtrSize), "Ptr", uia, "Ptr*", el) != 0 || !el) 	; GetFocusedElement
+		return ""
+	if (DllCall(NumGet(NumGet(el+0) + 16*A_PtrSize), "Ptr", el, "Int", 10014, "Ptr*", tp) = 0 && tp) { 	; GetCurrentPattern(Text)
+		if (DllCall(NumGet(NumGet(tp+0) + 5*A_PtrSize), "Ptr", tp, "Ptr*", arr) = 0 && arr) { 		; GetSelection
+			n := 0
+			DllCall(NumGet(NumGet(arr+0) + 3*A_PtrSize), "Ptr", arr, "Int*", n) 			; Length
+			loop % n {
+				rng := 0 , bs := 0
+				if (DllCall(NumGet(NumGet(arr+0) + 4*A_PtrSize), "Ptr", arr, "Int", A_Index - 1, "Ptr*", rng) = 0 && rng) {
+					if (DllCall(NumGet(NumGet(rng+0) + 12*A_PtrSize), "Ptr", rng, "Int", -1, "Ptr*", bs) = 0 && bs) { 	; GetText
+						out .= StrGet(bs, "UTF-16")
+						DllCall("OleAut32\SysFreeString", "Ptr", bs)
+					}
+					ObjRelease(rng)
+				}
+			}
+			ObjRelease(arr)
+		}
+		ObjRelease(tp)
+	}
+	ObjRelease(el)
+	return StrReplace(out, "`r`n", "`n") == out ? StrReplace(out, "`r", "`r`n") : out 	; Word uses bare CR
+}
+
 ; the active window and its focused control, and whether the selection there may be replaced:
 ; edit := 0 when UI Automation says the element is read-only (read-only edit controls and web pages may
 ; show a caret too) or the window is a console / Explorer (Ctrl+V there would type into the command

@@ -126,7 +126,7 @@ global ini_IsImageStored , ini_Quality , ini_MaxClips , ini_Threshold , ini_isMe
 		, ini_CopyBeep , beepFrequency , ignoreWindows, ini_defEditor, ini_defImgEditor, ini_def_Pformat, pluginManager_k, holdClip_K, ini_PreserveClipPos
 		, chOrg_K, ini_startSearch, ini_revFormat2def, ini_pstMode_X, ini_pstMode_Y, ini_HisCloseOnInstaPaste, history_K, ini_ram_flush, ini_winClipjump := 1
 		, ini_monitorClipboard := 0, ini_pasteModeStyle, ini_pasteModeTheme, ini_pasteModeHints, ini_pasteModeFont, ini_pasteModeFontSize
-		, ini_pasteModeHighlight, ini_pasteModeWidth, ini_pasteModeMaxLines, ini_pasteModePreviewChars
+		, ini_pasteModeHighlight, ini_pasteModeRichText, ini_pasteModeWidth, ini_pasteModeMaxLines, ini_pasteModePreviewChars
 
 ;Global Position
 global picpos:={}, bttpos:={}
@@ -965,8 +965,10 @@ PasteModePanel(cText, notpaste=0) {
 		info.format := Trim(GetClipboardFormat(), "[]")
 		t := CJPanel_ClipRichInfo() 	; HTML / Link / RTF kept with the clip (display only)
 		info.rich := t.kind , info.url := t.url
+		if (curPformat = "" && CJPanel_RichOn()) 	; formatted preview; a paste format shows its plain result
+			info.html := t.html
 		if CJPassword_IsClip(CN.NG, realActive)
-			info.format := CJPassword_Label(CN.NG, realActive) , info.rich := "" , info.url := ""
+			info.format := CJPassword_Label(CN.NG, realActive) , info.rich := "" , info.url := "" , info.html := ""
 		t := halfclip
 		if (MSG_MORE_PREVIEW != "" && SubStr(t, 1-StrLen(MSG_MORE_PREVIEW)) == MSG_MORE_PREVIEW)
 			t := RTrim(SubStr(t, 1, -StrLen(MSG_MORE_PREVIEW)), "`r`n") , info.more := 1
@@ -1568,7 +1570,7 @@ copyMessage_restore:
 ;****************READ ALOUD (ElevenLabs, lib/CJSpeak.ahk)*************************************************************
 
 readAloud: 		; Action Mode + R: the selected text, wherever it is (copied without becoming a clip)
-	CJSpeak_Text(CopytoVar(1), "selection")
+	CJSpeak_Text(CJWrite_GetSelection(), "selection")
 	return
 
 pstMode_readAloud: 		; Ctrl+V + R: the clip shown in paste mode
@@ -1587,7 +1589,7 @@ pstMode_readAloud: 		; Ctrl+V + R: the clip shown in paste mode
 ;****************CORRECT TEXT WITH THE LOCAL LLM (lib/CJWrite.ahk)*************************************************************
 
 correctText: 		; Action Mode + W: the selected text, replaced by the corrected text (else clipboard)
-	CJWrite_Correct(CopytoVar(1), "selection")
+	CJWrite_Correct(CJWrite_GetSelection(), "selection")
 	return
 
 pstMode_correctText: 		; Ctrl+V + W: the clip shown in paste mode, corrected text is pasted
@@ -1604,7 +1606,7 @@ pstMode_correctText: 		; Ctrl+V + W: the clip shown in paste mode, corrected tex
 	return
 
 translateText: 		; Action Mode + T: the selected text, replaced by the translation (else clipboard)
-	CJWrite_Translate(CopytoVar(1), "selection")
+	CJWrite_Translate(CJWrite_GetSelection(), "selection")
 	return
 
 pstMode_translate: 		; Ctrl+V + T: the clip shown in paste mode, translation is pasted
