@@ -73,7 +73,8 @@ CJWrite_Translate(text, mode := "selection"){
 	return CJWrite_Run("translate", text, mode)
 }
 
-; task: "correct" or "translate"; mode: "selection" (result to the clipboard), "clip" (result pasted)
+; task: "correct" or "translate"; mode: "selection" (result replaces the selection when the target is
+; editable and still focused, else it goes to the clipboard), "clip" (result pasted)
 ; or "return" (result returned, nothing else; "" when it failed, was cancelled or replaced by a newer call)
 CJWrite_Run(task, text, mode := "selection"){
 	global copyMessage, ini_IsMessage
@@ -84,6 +85,8 @@ CJWrite_Run(task, text, mode := "selection"){
 	myGen := ++CJW.gen
 	CJW.cancel := 0
 	isTr := (task = "translate")
+	if (mode = "selection")
+		target := CJWrite_Target() 	; where the selection is: checked again when the answer is there
 
 	RegExMatch(text, "^\s*", lead) , RegExMatch(text, "\s*$", trail)
 	core := Trim(text, " `t`r`n")
@@ -176,6 +179,12 @@ CJWrite_Run(task, text, mode := "selection"){
 			CJWrite_Msg(TXT.TIP_llm_nochange, "info", 1500)
 		return
 	}
+	if (mode = "selection" && CJWrite_SameTarget(target)) { 	; replace the selection, no clip
+		if same 						; nothing to replace
+			return CJWrite_Msg(TXT.TIP_llm_nochange, "info", 1500)
+		cjPasteTextNoClip(out)
+		return CJWrite_Msg(isTr ? TXT.TIP_llm_trReplaced : TXT.TIP_llm_replaced, "check", 1500)
+	}
 	msg := isTr ? TXT.TIP_llm_translated : same ? TXT.TIP_llm_nochange "`n" TXT.TIP_llm_toclip : TXT.TIP_llm_done
 	if ini_IsMessage {
 		copyMessage := msg " {" CN.Name "}" 	; shown by the copy notification of the new clip
@@ -186,6 +195,55 @@ CJWrite_Run(task, text, mode := "selection"){
 		CJWrite_Msg(msg, "check", 1500)
 	}
 }
+; the active window and its focused control, and whether the selection there can be replaced:
+; edit := a caret is shown (text input) or UI Automation reports an editable value - unless UI Automation
+; says the element is read-only (read-only edit controls and web pages may show a caret too)
+CJWrite_Target(){
+	t := {win: WinExist("A"), focus: 0, caret: 0, edit: 0}
+	if !t.win
+		return t
+	cb := A_PtrSize = 8 ? 72 : 48
+	VarSetCapacity(gti, cb, 0) , NumPut(cb, gti, 0, "UInt")
+	tid := DllCall("GetWindowThreadProcessId", "Ptr", t.win, "Ptr", 0, "UInt")
+	if DllCall("GetGUIThreadInfo", "UInt", tid, "Ptr", &gti) {
+		t.focus := NumGet(gti, A_PtrSize = 8 ? 16 : 12, "Ptr")
+		t.caret := NumGet(gti, A_PtrSize = 8 ? 48 : 28, "Ptr")
+	}
+	uia := CJWrite_UiaEditable()
+	t.edit := (uia = 1) || (uia = -1 && t.caret)
+	return t
+}
+
+; still the same window and control, and editable?
+CJWrite_SameTarget(t){
+	if !IsObject(t) || !t.edit || !t.win
+		return 0
+	now := CJWrite_Target()
+	return now.win = t.win && (!t.focus || now.focus = t.focus)
+}
+
+; focused element by UI Automation: 1 = editable value, 0 = read-only, -1 = unknown (no value pattern)
+CJWrite_UiaEditable(){
+	static uia := 0
+	if !uia
+		try uia := ComObjCreate("{ff48dba4-60ef-4201-aa87-54103eef594e}", "{30cbe57d-d9d0-452a-ab13-7ac5ac4825ee}")
+	if !uia
+		return -1
+	el := 0 , res := -1
+	if (DllCall(NumGet(NumGet(uia+0) + 8*A_PtrSize), "Ptr", uia, "Ptr*", el) != 0 || !el) 	; GetFocusedElement
+		return -1
+	VarSetCapacity(v, 24, 0)
+	getProp := NumGet(NumGet(el+0) + 10*A_PtrSize) 			; GetCurrentPropertyValue
+	if (DllCall(getProp, "Ptr", el, "Int", 30043, "Ptr", &v) = 0 	; IsValuePatternAvailable
+		&& NumGet(v, 0, "UShort") = 11 && NumGet(v, 8, "Short")) {
+		VarSetCapacity(v, 24, 0)
+		if (DllCall(getProp, "Ptr", el, "Int", 30046, "Ptr", &v) = 0 && NumGet(v, 0, "UShort") = 11) 	; Value.IsReadOnly
+			res := NumGet(v, 8, "Short") ? 0 : 1
+	}
+	ObjRelease(el)
+	return res
+}
+
 ; first model id listed by the server ("" if none)
 CJWrite_DefaultModel(base){
 	static cache := {}

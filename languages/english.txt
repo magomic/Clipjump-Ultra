@@ -416,6 +416,8 @@ TIP_llm_password = Password clips are not sent to the LLM
 ACT_translateText = Translate text (local LLM)
 TIP_llm_translating = Translating text ...  ·  Esc = cancel
 TIP_llm_translated = Translation copied to the clipboard
+TIP_llm_replaced = Text corrected
+TIP_llm_trReplaced = Translation inserted
 TIP_spm_placeholder = Search clips ...
 TIP_spm_none = No matches
 TIP_spm_hint = Enter paste  ·  ↑ ↓ matches  ·  Esc cancel

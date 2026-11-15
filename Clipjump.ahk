@@ -1586,7 +1586,7 @@ pstMode_readAloud: 		; Ctrl+V + R: the clip shown in paste mode
 
 ;****************CORRECT TEXT WITH THE LOCAL LLM (lib/CJWrite.ahk)*************************************************************
 
-correctText: 		; Action Mode + W: the selected text, corrected text goes to the clipboard
+correctText: 		; Action Mode + W: the selected text, replaced by the corrected text (else clipboard)
 	CJWrite_Correct(CopytoVar(1), "selection")
 	return
 
@@ -1603,7 +1603,7 @@ pstMode_correctText: 		; Ctrl+V + W: the clip shown in paste mode, corrected tex
 	temp_text := ""
 	return
 
-translateText: 		; Action Mode + T: the selected text, translation goes to the clipboard
+translateText: 		; Action Mode + T: the selected text, replaced by the translation (else clipboard)
 	CJWrite_Translate(CopytoVar(1), "selection")
 	return
 

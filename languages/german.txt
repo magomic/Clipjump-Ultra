@@ -417,6 +417,8 @@ TIP_llm_password = Passwort-Clips werden nicht an das LLM geschickt
 ACT_translateText = Text übersetzen (lokales LLM)
 TIP_llm_translating = Text wird übersetzt …  ·  Esc = abbrechen
 TIP_llm_translated = Übersetzung in der Zwischenablage
+TIP_llm_replaced = Text korrigiert
+TIP_llm_trReplaced = Übersetzung eingefügt
 TIP_spm_placeholder = Clips durchsuchen …
 TIP_spm_none = Keine Treffer
 TIP_spm_hint = Enter einfügen  ·  ↑ ↓ Treffer  ·  Esc abbrechen
