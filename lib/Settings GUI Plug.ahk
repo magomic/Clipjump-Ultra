@@ -10,6 +10,7 @@ gui_Settings()
 	global
 	local settingsHaveChanged := false
 	local size_limitmaxclips, size_keepsession, size_cfolderp, left_size, x_ofhotkeys, size_advanced, hSetLinkAdv, hSetLinkIgn, fontScale
+	local set_bottom, set_totalW, set_dir, set_q, set_st
 
 	; get max sizes possible of window (measured with the font the window will use: system font in modern style)
 	size_limitmaxclips := getControlInfo("checkbox", TXT.SET_limitmaxclips, "w", CJTheme_FontOpt(), CJTheme_FontName())
@@ -100,14 +101,19 @@ gui_Settings()
 	Gui, Add, Text, 	xs y+8,	% TXT._pitswp
 	Gui, Add, Hotkey,	x%x_ofhotkeys% yp-3 w%width_hk_control% vpitswp_K  ghotkey_pitswp, % pitswap_K
 
+	;---- Extensions (columns 3 + 4): privacy, local LLM, ElevenLabs, images - all [Privacy] / [LocalLLM] /
+	;     [ElevenLabs] / [Base64] keys of settings.ini; the modules read them on every use (no reload needed)
+	set_bottom := settings_AddExtensions(fontScale ? fontScale : 1)
+	set_totalW := settings_RightEdge("Settings") - 8
+
 	;---- Buttons
 	size_advanced := getControlInfo("text", TXT.SET_advanced, "w", CJTheme_FontOpt("Underline"), CJTheme_FontName())
 	Gui, Settings:Default
 	Gui, Font, Underline
-	Gui, Add, Text, 	% "y" height_group+height_downgroup+30 " x" left_size+right_size+5-size_advanced " cBlue gsettings_open_advanced HwndhSetLinkAdv", % TXT.SET_advanced 	;+5 for gap betn group boxes
+	Gui, Add, Text, 	% "y" Max(height_group+height_downgroup+30, set_bottom+14) " x" left_size+right_size+5-size_advanced " cBlue gsettings_open_advanced HwndhSetLinkAdv", % TXT.SET_advanced 	;+5 for gap betn group boxes
 	Gui, Add, Text, 	x9 yp cBlue gClassTool HwndhSetLinkIgn, % TXT.SET_manageignore
 	Gui, font, norm
-	Gui, Add, Button,	% "x" ((left_size+right_size)/2)-60 " yp+23 Default gsettingsButtonOK", 	&OK 	;57 in vertical
+	Gui, Add, Button,	% "x" (set_totalW/2)-60 " yp+23 Default gsettingsButtonOK", 	&OK 	;57 in vertical
 	Gui, Add, Button,	x+8 gsettingsButtonCancel,			% TXT.SET_cancel
 	Gui, Add, Button,	x+8	Disabled vsettingsButtonApply gsettingsButtonApply,	% TXT.SET_apply
 	GuiControl, Disable, settingsButtonApply
@@ -221,6 +227,34 @@ settingsButtonApply:
 		settingsHaveChanged := false
 	}
 	GuiControl, Disable, settingsButtonApply
+	return
+
+settings_mp3Browse: 		; "..." next to the MP3 folder
+	GuiControlGet, set_dir, Settings:, new_mp3Dir
+	Gui, Settings:+OwnDialogs
+	FileSelectFolder, set_dir, % "*" set_dir, 3, % TXT.SET_elDir
+	if (set_dir != "") {
+		GuiControl, Settings:, new_mp3Dir, % set_dir
+		gosub settingsChanged
+	}
+	return
+
+settings_elQuota: 		; credits of the ElevenLabs account (needs the "User: Read" permission of the key)
+	GuiControl, Settings:, settings_elUsage, % TXT.SET_elQuotaBusy
+	set_q := CJSpeak_Quota()
+	if (set_q.err != "")
+		set_st := TXT.SET_elQuotaErr " " set_q.err
+	else {
+		FormatTime, set_dir, % set_q.reset, dd.MM.yyyy
+		set_st := StrReplace(StrReplace(StrReplace(TXT.SET_elQuotaOk, "%u%", set_q.used), "%l%", set_q.limit), "%d%", set_dir)
+	}
+	GuiControl, Settings:, settings_elUsage, % set_st
+	return
+
+settings_elLog: 		; opens the read-aloud log (or the MP3 folder)
+	GuiControlGet, set_dir, Settings:, new_mp3Dir
+	set_dir := RTrim(set_dir, "\")
+	try Run, % FileExist(CJSpeak_LogPath(set_dir)) ? CJSpeak_LogPath(set_dir) : set_dir
 	return
 
 settings_open_advanced:
@@ -368,6 +402,23 @@ save_Settings()
 	ini_write("Shortcuts", "history_k", hst_k, 0)
 	; v12.3+
 	ini_write("Main", "winClipjump", new_winClipjump, 0)
+	; extensions (Settings window columns 3 + 4)
+	ini_write("Privacy", "maskPasswords", new_pwMask, 0)
+	ini_write("Privacy", "passwordClipEncryption", new_pwEncrypt, 0)
+	ini_write("Privacy", "passwordLifetime", new_pwLifetime, 0)
+	ini_write("LocalLLM", "model", Trim(new_llmModel), 0)
+	ini_write("LocalLLM", "reasoningEffort", new_llmEffort, 0)
+	ini_write("LocalLLM", "timeoutSec", new_llmTimeout, 0)
+	ini_write("LocalLLM", "prompt", settings_OneLine(new_llmPrompt), 0)
+	ini_write("LocalLLM", "translatePrompt", settings_OneLine(new_llmTrPrompt), 0)
+	ini_write("ElevenLabs", "voiceId", Trim(new_elVoice), 0)
+	ini_write("ElevenLabs", "modelId", Trim(new_elModel), 0)
+	ini_write("ElevenLabs", "maxChars", new_elMaxChars, 0)
+	ini_write("ElevenLabs", "mp3Dir", RTrim(Trim(new_mp3Dir), "\"), 0)
+	ini_write("ElevenLabs", "mp3Save", new_mp3Save, 0)
+	ini_write("ElevenLabs", "mp3KeepDays", new_mp3KeepDays, 0)
+	ini_write("ElevenLabs", "mp3Cache", new_mp3Cache, 0)
+	ini_write("Base64", "dataUri", new_b64DataUri, 0)
 	if (new_winClipjump != ini_winClipjump){ ; change win-paste-mode too
 		manageWinPasteMode(new_winClipjump, 1)
 	}
@@ -554,4 +605,111 @@ validate_Settings()
 	paste_K := Substr(paste_K, 1, 1)
 
 	ini_ram_flush := ini_ram_flush==1 ? 1 : 0
+}
+
+;------------------------------------------------------------------------------------------------
+; Settings window, columns 3 + 4: privacy (lib/CJPassword.ahk), local LLM (lib/CJWrite.ahk),
+; ElevenLabs (lib/CJSpeak.ahk) and images (lib/CJBase64.ahk). Saved by save_Settings().
+; Returns the bottom of the lowest group box; settings_RightEdge() gives the right edge.
+
+global settings_ExtRight
+
+settings_AddExtensions(sc){
+	; assume-local (Hwnd / GuiControlGet outputs stay local); the control variables must be global
+	global new_pwMask, new_pwEncrypt, new_pwLifetime, new_llmModel, new_llmEffort, new_llmTimeout, new_llmPrompt, new_llmTrPrompt
+		, new_elVoice, new_elModel, new_elMaxChars, new_mp3Dir, new_mp3Save, new_mp3KeepDays, new_mp3Cache, new_b64DataUri, settings_elUsage
+	gw := Round(350*sc) , inW := Round(150*sc) , numW := Round(55*sc)
+
+	;---- column 3: privacy
+	Gui, Settings:Add, GroupBox, % "ym w" gw " h60 HwndhG", % TXT.SET_grpPrivacy
+	GuiControlGet, p, Settings:Pos, %hG%
+	gx3 := pX , colR := gx3 + gw - 9 , inner := gw - 18
+	mask := Trim(Ini_read("Privacy", "maskPasswords")) != "0"
+	enc := Trim(Ini_read("Privacy", "passwordClipEncryption")) != "0"
+	life := CJPassword_Lifetime()
+	Gui, Settings:Add, Checkbox, % "x" gx3+9 " y" pY+22 " Section Checked" mask " vnew_pwMask gsettingsChanged", % TXT.SET_pwMask
+	Gui, Settings:Add, Checkbox, % "xs y+8 Checked" enc " vnew_pwEncrypt gsettingsChanged", % TXT.SET_pwEncrypt
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_pwLifetime
+	Gui, Settings:Add, Edit, % "x" colR-numW " yp-3 w" numW " r1 Number vnew_pwLifetime gsettingsChanged HwndhL", % life
+	Gui, Settings:Add, UpDown, Range0-100000 gsettingsChanged, % life
+	bot3 := settings_FitGroup(hG, hL)
+
+	;---- column 3: local LLM
+	Gui, Settings:Add, GroupBox, % "x" gx3 " y" bot3+8 " w" gw " h60 HwndhG", % TXT.SET_grpLLM
+	GuiControlGet, p, Settings:Pos, %hG%
+	RegRead, url, HKCU\Environment, LOCAL_LLM_URL
+	if (url = "")
+		EnvGet, url, LOCAL_LLM_URL
+	Gui, Settings:Add, Text, % "x" gx3+9 " y" pY+22 " Section w" inner, % TXT.SET_llmServer " " (url != "" ? url : TXT.SET_notSet)
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_llmModel
+	Gui, Settings:Add, Edit, % "x" colR-inW " yp-3 w" inW " r1 vnew_llmModel gsettingsChanged", % Trim(Ini_read("LocalLLM", "model"))
+	eff := Trim(Ini_read("LocalLLM", "reasoningEffort")) , lst := ""
+	for k, v in ["none", "low", "medium", "high"]
+		lst .= v "|" (v = eff ? "|" : "")
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_llmEffort
+	Gui, Settings:Add, DropDownList, % "x" colR-inW " yp-3 w" inW " vnew_llmEffort gsettingsChanged", % lst
+	v := CJWrite_Config().timeout
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_llmTimeout
+	Gui, Settings:Add, Edit, % "x" colR-numW " yp-3 w" numW " r1 Number vnew_llmTimeout gsettingsChanged", % v
+	Gui, Settings:Add, UpDown, Range5-3600 gsettingsChanged, % v
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_llmPrompt
+	Gui, Settings:Add, Edit, % "xs y+4 w" inner " r2 -WantReturn vnew_llmPrompt gsettingsChanged", % CJWrite_Config("correct").prompt
+	Gui, Settings:Add, Text, xs y+8, % TXT.SET_llmTrPrompt
+	Gui, Settings:Add, Edit, % "xs y+4 w" inner " r2 -WantReturn vnew_llmTrPrompt gsettingsChanged HwndhL", % CJWrite_Config("translate").prompt
+	bot3 := settings_FitGroup(hG, hL)
+
+	;---- column 4: ElevenLabs
+	gx4 := gx3 + gw + 5 , colR := gx4 + gw - 9
+	Gui, Settings:Add, GroupBox, % "x" gx4 " ym w" gw " h60 HwndhG", ElevenLabs
+	GuiControlGet, p, Settings:Pos, %hG%
+	cfg := CJSpeak_Config()
+	Gui, Settings:Add, Text, % "x" gx4+9 " y" pY+22 " Section w" inner, % TXT.SET_elKey " " (cfg.key != "" ? TXT.SET_isSet : TXT.SET_notSet)
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_elVoice
+	Gui, Settings:Add, Edit, % "x" colR-inW " yp-3 w" inW " r1 vnew_elVoice gsettingsChanged", % cfg.voice
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_elModel
+	Gui, Settings:Add, Edit, % "x" colR-inW " yp-3 w" inW " r1 vnew_elModel gsettingsChanged", % cfg.model
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_elMaxChars
+	Gui, Settings:Add, Edit, % "x" colR-numW-Round(10*sc) " yp-3 w" numW+Round(10*sc) " r1 Number vnew_elMaxChars gsettingsChanged", % cfg.max
+	Gui, Settings:Add, UpDown, Range1-100000 0x80 gsettingsChanged, % cfg.max 	; 0x80 = UDS_NOTHOUSANDS
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_elDir
+	Gui, Settings:Add, Edit, % "xs y+4 w" inner-Round(32*sc) " r1 vnew_mp3Dir gsettingsChanged", % cfg.dir
+	Gui, Settings:Add, Button, % "x+4 yp-1 w" Round(28*sc) " gsettings_mp3Browse", ...
+	Gui, Settings:Add, Checkbox, % "xs y+10 Checked" cfg.save " vnew_mp3Save gsettingsChanged", % TXT.SET_elSave
+	Gui, Settings:Add, Text, xs y+12, % TXT.SET_elKeep
+	Gui, Settings:Add, Edit, % "x" colR-numW " yp-3 w" numW " r1 Number vnew_mp3KeepDays gsettingsChanged", % cfg.keep
+	Gui, Settings:Add, UpDown, Range0-100000 gsettingsChanged, % cfg.keep
+	Gui, Settings:Add, Checkbox, % "xs y+10 Checked" (Trim(Ini_read("ElevenLabs", "mp3Cache")) != "0") " vnew_mp3Cache gsettingsChanged", % TXT.SET_elCache
+	st := CJSpeak_LogStats(cfg.dir)
+	Gui, Settings:Add, Text, % "xs y+12 w" inner " r2 vsettings_elUsage"
+		, % StrReplace(StrReplace(StrReplace(TXT.SET_elUsage, "%c%", st.chars), "%r%", st.requests), "%k%", st.cached)
+	Gui, Settings:Add, Button, xs y+6 gsettings_elQuota, % TXT.SET_elQuota
+	Gui, Settings:Add, Button, x+8 yp gsettings_elLog HwndhL, % TXT.SET_elLog
+	bot4 := settings_FitGroup(hG, hL)
+
+	;---- column 4: images
+	Gui, Settings:Add, GroupBox, % "x" gx4 " y" bot4+8 " w" gw " h60 HwndhG", % TXT.SET_grpImages
+	GuiControlGet, p, Settings:Pos, %hG%
+	v := Trim(Ini_read("Base64", "dataUri")) != "0"
+	Gui, Settings:Add, Checkbox, % "x" gx4+9 " y" pY+22 " w" inner " Checked" v " vnew_b64DataUri gsettingsChanged HwndhL", % TXT.SET_b64DataUri
+	bot4 := settings_FitGroup(hG, hL)
+
+	settings_ExtRight := gx4 + gw
+	return Max(bot3, bot4)
+}
+
+; makes a group box end 10 px below its last control; returns the new bottom
+settings_FitGroup(hGroup, hLast){
+	GuiControlGet, g, Settings:Pos, %hGroup%
+	GuiControlGet, l, Settings:Pos, %hLast%
+	GuiControl, Settings:Move, %hGroup%, % "h" (lY + lH + 10 - gY)
+	return lY + lH + 10
+}
+
+settings_RightEdge(guiName){
+	return settings_ExtRight + 8
+}
+
+; prompts are single ini lines
+settings_OneLine(s){
+	return Trim(RegExReplace(s, "\s*[\r\n]+\s*", " "))
 }

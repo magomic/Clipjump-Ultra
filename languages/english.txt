@@ -424,6 +424,35 @@ TIP_ca_correct = Correct text
 TIP_ca_read = Read aloud
 TIP_ca_llminfo = Click this entry to send the text to the local LLM (Esc cancels). OK pastes the result.
 TIP_ca_readinfo = Click this entry to have the text read aloud (ElevenLabs). OK pastes the text unchanged.
+SET_grpPrivacy = Privacy (password clips)
+SET_pwMask = Mask passwords in the preview
+SET_pwEncrypt = Store password clips encrypted
+SET_pwLifetime = Lifetime (min, 0 = never)
+SET_grpLLM = Local LLM (W = correct, T = translate)
+SET_llmServer = Server (LOCAL_LLM_URL):
+SET_notSet = not set
+SET_isSet = set
+SET_llmModel = Model (empty = auto)
+SET_llmEffort = Thinking level
+SET_llmTimeout = Timeout in seconds
+SET_llmPrompt = Prompt for correct
+SET_llmTrPrompt = Prompt for translate
+SET_elKey = API key (ELEVENLABS_API_KEY):
+SET_elVoice = Voice ID
+SET_elModel = Model
+SET_elMaxChars = Max. characters per request
+SET_elDir = Folder for MP3 files and log
+SET_elSave = Save MP3 files
+SET_elKeep = Keep (days, 0 = always)
+SET_elCache = Reuse saved MP3 (saves credits)
+SET_elUsage = This month according to the log: %c% characters in %r% requests, %k% from the cache
+SET_elQuota = Get credits
+SET_elLog = Open log
+SET_elQuotaBusy = Getting credits ...
+SET_elQuotaErr = Credits not available:
+SET_elQuotaOk = Credits: %u% of %l% characters used, reset on %d%
+SET_grpImages = Images (Ctrl+V + B)
+SET_b64DataUri = Paste as data URI (data:image/png;base64,...)
 TIP_tts_nokey = ElevenLabs API key missing - set the user environment variable ELEVENLABS_API_KEY (e.g. setx ELEVENLABS_API_KEY "...")
 TIP_tts_novoice = ElevenLabs voice missing - set voiceId in settings.ini, section [ElevenLabs]
 TIP_tts_truncated = Text cut to %n% characters (maxChars)

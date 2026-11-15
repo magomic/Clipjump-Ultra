@@ -425,6 +425,35 @@ TIP_ca_correct = Korrigieren
 TIP_ca_read = Vorlesen
 TIP_ca_llminfo = Klicke auf den Eintrag, um den Text an das lokale LLM zu senden (Esc bricht ab). OK fügt das Ergebnis ein.
 TIP_ca_readinfo = Klicke auf den Eintrag, um den Text vorlesen zu lassen (ElevenLabs). OK fügt den Text unverändert ein.
+SET_grpPrivacy = Datenschutz (Passwort-Clips)
+SET_pwMask = Passwörter in der Vorschau maskieren
+SET_pwEncrypt = Passwort-Clips verschlüsselt speichern
+SET_pwLifetime = Lebensdauer (Min., 0 = nie)
+SET_grpLLM = Lokales LLM (W = Korrigieren, T = Übersetzen)
+SET_llmServer = Server (LOCAL_LLM_URL):
+SET_notSet = nicht gesetzt
+SET_isSet = gesetzt
+SET_llmModel = Modell (leer = auto)
+SET_llmEffort = Thinking-Stufe
+SET_llmTimeout = Timeout in Sekunden
+SET_llmPrompt = Prompt Korrigieren
+SET_llmTrPrompt = Prompt Übersetzen
+SET_elKey = API-Key (ELEVENLABS_API_KEY):
+SET_elVoice = Voice-ID
+SET_elModel = Modell
+SET_elMaxChars = Max. Zeichen je Anfrage
+SET_elDir = Ordner für MP3-Dateien und Protokoll
+SET_elSave = MP3-Dateien speichern
+SET_elKeep = Aufbewahren (Tage, 0 = immer)
+SET_elCache = Gespeicherte MP3 wiederverwenden (spart Credits)
+SET_elUsage = Diesen Monat laut Protokoll: %c% Zeichen in %r% Anfragen, %k% aus dem Cache
+SET_elQuota = Kontingent abrufen
+SET_elLog = Protokoll öffnen
+SET_elQuotaBusy = Kontingent wird abgerufen …
+SET_elQuotaErr = Kontingent nicht abrufbar:
+SET_elQuotaOk = Kontingent: %u% von %l% Zeichen verbraucht, Reset am %d%
+SET_grpImages = Bilder (Strg+V + B)
+SET_b64DataUri = Als Data-URI einfügen (data:image/png;base64,…)
 TIP_tts_nokey = ElevenLabs-API-Key fehlt – Benutzer-Umgebungsvariable ELEVENLABS_API_KEY setzen (z. B. setx ELEVENLABS_API_KEY "...")
 TIP_tts_novoice = ElevenLabs-Stimme fehlt – voiceId in settings.ini, Abschnitt [ElevenLabs], eintragen
 TIP_tts_truncated = Text auf %n% Zeichen gekürzt (maxChars)
