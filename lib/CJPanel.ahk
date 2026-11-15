@@ -1370,6 +1370,12 @@ CJPanel_ParseHtmlLink(html){
 CJPanel_HtmlDecode(s){
 	s := StrReplace(s, "&quot;", """"), s := StrReplace(s, "&#39;", "'"), s := StrReplace(s, "&apos;", "'")
 	s := StrReplace(s, "&lt;", "<"), s := StrReplace(s, "&gt;", ">"), s := StrReplace(s, "&nbsp;", " ")
+	pos := 1     ; numeric entities (&#160; from VS Code, &#x2014; ...); "&amp;" last, so "&amp;#160;" stays text
+	while (pos := RegExMatch(s, "&#(x[0-9A-Fa-f]{1,6}|\d{1,7});", m, pos)) {
+		n := SubStr(m1, 1, 1) = "x" ? CJPanel_Hex(SubStr(m1, 2)) : m1 + 0
+		ch := (n = 160) ? " " : (n > 0 && n < 0x110000) ? Chr(n) : ""
+		s := SubStr(s, 1, pos - 1) ch SubStr(s, pos + StrLen(m)), pos += StrLen(ch)
+	}
 	return StrReplace(s, "&amp;", "&")
 }
 
@@ -1403,6 +1409,9 @@ CJPanel_HtmlRuns(html, T){
 		frag := RegExReplace(html, "s)^Version:.*?(?=<)")
 	if (StrLen(frag) > 400000)
 		frag := SubStr(frag, 1, 400000)
+	rules := {}, sp := 1     ; CSS rules of <style> blocks (Word: heading colours, character styles)
+	while (sp := RegExMatch(html, "is)<style\b[^>]*>(.*?)</style>", sm, sp))
+		CJPanel_CssRules(sm1, rules), sp += StrLen(sm)
 	frag := RegExReplace(frag, "is)<(script|style|head|title|xml)\b.*?</\1\s*>")
 	frag := RegExReplace(frag, "s)<!--.*?-->")
 	stack := [{tag: "", st: 0, c: "", pre: 0, list: ""}], runs := [], pos := 1, len := StrLen(frag)
@@ -1452,6 +1461,15 @@ CJPanel_HtmlRuns(html, T){
 				el.st |= 4, el.c := "link"
 			if (tag = "font" && RegExMatch(attrs, "i)\bcolor\s*=\s*[""']?([#\w]+)", mc))
 				el.c := CJPanel_CssColor(mc1, el.c)
+			if (rules.Count()) {     ; order: tag, .class, tag.class, then the inline style
+				if rules.HasKey(tag)
+					CJPanel_HtmlStyle(rules[tag], el)
+				if RegExMatch(attrs, "i)\bclass\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s>]+))", mcl)
+					for k, cl in StrSplit(Format("{:L}", mcl1 mcl2 mcl3), " ")
+						for k2, key in ["." cl, tag "." cl]
+							if (cl != "" && rules.HasKey(key))
+								CJPanel_HtmlStyle(rules[key], el)
+			}
 			if RegExMatch(attrs, "i)\bstyle\s*=\s*(""([^""]*)""|'([^']*)')", ms)
 				CJPanel_HtmlStyle(ms2 ms3, el)
 			stack.Push(el)
@@ -1504,6 +1522,22 @@ CJPanel_HtmlEmit(runs, out, piece, el, T){
 	else
 		runs.Push({t: piece, c: c, st: st})
 	out.n += StrLen(piece), out.nl := (SubStr(piece, 0) = "`n"), out.sp := (SubStr(piece, 0) = " ")
+}
+
+; simple CSS rules ("h3", ".cls", "span.cls", comma lists) -> rules[selector] .= declarations;
+; @-rules, pseudo classes and combinators are skipped
+CJPanel_CssRules(css, rules){
+	css := RegExReplace(css, "s)/\*.*?\*/"), css := StrReplace(StrReplace(css, "<!--"), "-->")
+	pos := 1
+	while (pos := RegExMatch(css, "([^{}]+)\{([^{}]*)\}", m, pos)) {
+		pos += StrLen(m)
+		for k, sel in StrSplit(m1, ",")
+		{
+			sel := Format("{:L}", Trim(sel, " `t`r`n"))
+			if (sel != "" && RegExMatch(sel, "^[a-z][\w]*(\.[\w-]+)?$|^\.[\w-]+$"))
+				rules[sel] := (rules.HasKey(sel) ? rules[sel] ";" : "") m2
+		}
+	}
 }
 
 ; inline CSS: color, font-weight, font-style, text-decoration
