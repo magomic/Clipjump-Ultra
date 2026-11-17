@@ -1,6 +1,9 @@
 /*
 	CJBase64 - paste an image clip as Base64 text (Ctrl+V + B in paste mode)
 
+	Copyright 2026 Erhan Tuna - part of Clipjump-Ultra (https://github.com/magomic/Clipjump-Ultra)
+	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.txt)
+
 	The image is taken from the clipboard (paste mode has loaded the clip shown onto it):
 	  1. a "PNG" clipboard format is used as it is (keeps transparency, no re-encoding)
 	  2. otherwise the bitmap (CF_DIB / CF_BITMAP) is encoded as PNG with GDI+

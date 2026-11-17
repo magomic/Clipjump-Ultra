@@ -1,4 +1,5 @@
-﻿/*
+﻿; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.txt (Apache License 2.0)
+/*
 TT_Console() v0.03
 	Use Tooltip as a User Interface
 

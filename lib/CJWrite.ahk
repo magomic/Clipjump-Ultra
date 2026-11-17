@@ -1,6 +1,9 @@
 /*
 	CJWrite - correct or translate a text with the local LLM (OpenAI compatible chat API, e.g. SGLang)
 
+	Copyright 2026 Erhan Tuna - part of Clipjump-Ultra (https://github.com/magomic/Clipjump-Ultra)
+	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.txt)
+
 	Triggers (Clipjump.ahk):  Action Mode + W / T  -> selected text; the result goes to the clipboard
 	                          Ctrl+V + W / T       -> clip shown in paste mode; the result is pasted
 	                                                  (without becoming a clip). Password clips are refused.

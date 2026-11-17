@@ -1,4 +1,5 @@
-﻿; Plugin API for Clipjump
+﻿; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.txt (Apache License 2.0)
+; Plugin API for Clipjump
 
 /**
  * run a api function in the string given

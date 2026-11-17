@@ -6,6 +6,7 @@
 ;@Plugin-Tags pformat
 ;@Plugin-version 0.61
 ;@Plugin-Previewable 0
+; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.txt (Apache License 2.0)
 
 ;@Plugin-Param1 The Input Text
 

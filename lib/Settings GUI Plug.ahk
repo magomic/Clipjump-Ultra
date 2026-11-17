@@ -1,4 +1,5 @@
-﻿;Gui Settings for Clipjump
+﻿; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.txt (Apache License 2.0)
+;Gui Settings for Clipjump
 ;A lot of thanks to chaz
 
 ; When adding new settings m remember to update ADVANCED_NUMBER var in the main file

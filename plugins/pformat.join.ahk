@@ -4,6 +4,7 @@
 ;@Plugin-Tags pformat
 ;@Plugin-version 0.0.1
 ;@Plugin-Previewable 1
+; Copyright 2026 Erhan Tuna - part of Clipjump-Ultra (https://github.com/magomic/Clipjump-Ultra), Apache License 2.0
 
 ;@Plugin-param1 Text to join
 

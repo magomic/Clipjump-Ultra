@@ -1,4 +1,5 @@
-﻿/*
+﻿; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.txt (Apache License 2.0)
+/*
 https://github.com/telppa/BeautifulToolTip
 
 If you want to add your own style to the built-in style, you can add it directly in btt().

@@ -2,7 +2,8 @@
 	Clipjump
 
 	Copyright 2013-15 Avi Aryan
-	Modifications (Fluent UI, dark mode, highlighting, tooltip fixes) Copyright 2026 Erhan Tuna
+	Clipjump-plus modifications by telppa (https://github.com/telppa/Clipjump-plus)
+	Clipjump-Ultra modifications Copyright 2026 Erhan Tuna (https://github.com/magomic/Clipjump-Ultra)
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.

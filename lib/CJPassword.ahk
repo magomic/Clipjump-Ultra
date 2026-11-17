@@ -1,6 +1,9 @@
 /*
 	CJPassword - recognize passwords copied from password managers, mask, encrypt and expire them
 
+	Copyright 2026 Erhan Tuna - part of Clipjump-Ultra (https://github.com/magomic/Clipjump-Ultra)
+	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.txt)
+
 	Detection: password managers (KeePass, KeePassXC, 1Password, ...) put marker formats on the
 	clipboard next to the text, asking clipboard monitors to ignore the content:
 	  "ExcludeClipboardContentFromMonitorProcessing"  (Microsoft convention)

@@ -1,4 +1,5 @@
-﻿/*
+﻿; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.txt (Apache License 2.0)
+/*
 Search in Paste Mode functions and labels file.
 introduced in v10.6
 */
