@@ -2,7 +2,7 @@
 	CJTheme - Windows 11 look (light/dark) for Clipjump's regular windows (History, Settings, ...)
 
 	Copyright 2026 Erhan Tuna - part of Clipjump-Ultra (https://github.com/magomic/Clipjump-Ultra)
-	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.txt)
+	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.md)
 
 	Call CJTheme_Apply("GuiName") after all controls were added (before or after Gui Show).
 	Follows the same theme setting as the paste mode panel: [Advanced] pasteModeTheme = auto|light|dark

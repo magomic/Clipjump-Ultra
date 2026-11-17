@@ -2,7 +2,7 @@
 	CJPanel - modern UI surfaces for Clipjump (Windows 11 / Fluent look)
 
 	Copyright 2026 Erhan Tuna - part of Clipjump-Ultra (https://github.com/magomic/Clipjump-Ultra)
-	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.txt)
+	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.md)
 
 	Replaces the BTT tooltips for paste mode, the copy notification and the action mode
 	when [Advanced] pasteModeStyle=modern (default).

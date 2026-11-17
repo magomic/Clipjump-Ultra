@@ -1,4 +1,4 @@
-﻿; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.txt (Apache License 2.0)
+﻿; Modified for Clipjump-Ultra by Erhan Tuna, 2026 - see NOTICE.md (Apache License 2.0)
 ; Plugin API for Clipjump
 
 /**

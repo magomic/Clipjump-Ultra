@@ -269,5 +269,5 @@ for the original Clipjump are collected in
   (Chinese translation, BTT tooltips and many fixes)
 - **Clipjump-Ultra** modifications © 2026 Erhan Tuna
 
-Licensed under the [Apache License 2.0](LICENSE). See [NOTICE.txt](NOTICE.txt) for the original
+Licensed under the [Apache License 2.0](LICENSE). See [NOTICE.md](NOTICE.md) for the original
 notice.

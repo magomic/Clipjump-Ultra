@@ -2,7 +2,7 @@
 	CJSpeak - read text aloud with ElevenLabs text-to-speech
 
 	Copyright 2026 Erhan Tuna - part of Clipjump-Ultra (https://github.com/magomic/Clipjump-Ultra)
-	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.txt)
+	Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE.md)
 
 	Triggers (Clipjump.ahk):  Action Mode + R  -> selected text (CopytoVar)
 	                          Ctrl+V + R       -> clip shown in paste mode
