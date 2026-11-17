@@ -1,4 +1,4 @@
-# ClipJump
+# ClipJump-Ultra
 Clipboard Tool with several smart functions.
 
 A fork of [Clipjump-plus](https://github.com/telppa/Clipjump-plus) (based on Clipjump v12.5), AutoHotkey v1, 64-bit only.
@@ -24,9 +24,9 @@ version info with `tools\Set-VersionInfo.ps1 -Exe Clipjump.exe -Version 12.7`.
 
 ---
 
-## Original Clipjump-plus readme
-[Download](https://github.com/telppa/Clipjump-plus/archive/refs/heads/master.zip)  
-[Online Manual](http://clipjump.sourceforge.net/docs/)
+## Clipjump-Ultra readme
+[Download](https://github.com/magomic/Clipjump-Ultra/releases)  
+<!-- [Online Manual](http://clipjump.sourceforge.net/docs/) -->
   
 Clipjump is a Multiple-Clipboard management utility for Windows.
 It was built to make working with multiple clipboards super fast and super easy.
