@@ -51,6 +51,9 @@ It is based on [Clipjump](https://github.com/aviaryan/Clipjump) by Avi Aryan, th
 | **Explorer** | *Copy File Data* and *Copy Folder Path* work with Windows 11 Explorer tabs |
 | **Extended Settings window** | Privacy, local LLM, ElevenLabs and image options, including this month's ElevenLabs usage |
 
+![alt text](image.png) ![alt text](image-1.png)
+
+
 ---
 
 ## Requirements
